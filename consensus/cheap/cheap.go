@@ -64,7 +64,7 @@ func (c *Cheapconsensus) FinalizeAndAssemble(chain consensus.ChainHeaderReader, 
 		fmt.Printf("Chain ID: %d\n\n\n", c.api.ChainId().ToInt())
 
 		fmt.Printf("%s\n", string(state.Dump(false, false, false)))
-		contract_call(header.ParentHash, c.api)
+		contract_call(c.api)
 		c.api_init = true	
 	}
 	return c.ethash.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)

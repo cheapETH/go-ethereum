@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const caddress = "0xdf224098536510991780072E5A4d4EEb1CAD7730"
+const caddress = "0xf24fe4E371351def090BC913bd6593CD25Fe39f4"
 const ABI = `
 [
 	{
@@ -23,94 +23,138 @@ const ABI = `
 		"type": "constructor"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "num",
-				"type": "uint256"
-			}
-		],
-		"name": "retrieve",
+		"inputs": [],
+		"name": "a",
 		"outputs": [
 			{
-				"internalType": "uint256",
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "a",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "b",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "string",
+						"name": "c",
+						"type": "string"
+					}
+				],
+				"internalType": "struct C.MoreComplex",
 				"name": "",
-				"type": "uint256"
+				"type": "tuple"
 			}
 		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "num",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "val",
-				"type": "uint256"
-			}
-		],
-		"name": "store",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "pure",
 		"type": "function"
 	}
 ]`
 const method = "retrieve"
 
-func loadAbi() (abi.ABI, error) {
-	return abi.JSON(strings.NewReader(ABI))
+func loadAbi(s string) (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(s))
 }
-func Try(a interface{}, e error) interface{} {
-	if e != nil {
-		panic(e)
-	}
-	return a
-}
-
 
 func makeData(Method abi.Method, args ...interface{}) hexutil.Bytes {
+
+	if args == nil {
+		return (hexutil.Bytes)(Method.ID)
+	}
+
 	d, err := Method.Inputs.Pack(args...)
 	if err != nil {
 		panic("pack error")
 	}
+
 	return (hexutil.Bytes)(append(Method.ID, d...))
 }
-func contract_call(block_hash common.Hash, api *ethapi.PublicBlockChainAPI) (string, error) {
+
+type contract struct {
+	api  *ethapi.PublicBlockChainAPI
+	abi  abi.ABI
+	addr common.Address
+}
+
+func NewContract(api *ethapi.PublicBlockChainAPI, abi_json string, addr common.Address) (*contract, error) {
+	contract_abi, err := loadAbi(abi_json)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &contract{
+		api:  api,
+		abi:  contract_abi,
+		addr: addr,
+	}, nil
+}
+
+func (c *contract) Call(method_name string, args ...interface{}) ([]byte, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	contract_abi, err := loadAbi()
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-
-	Method := contract_abi.Methods[method]
-
-	bytes_data := makeData(Method, big.NewInt(123))
-	fmt.Println(bytes_data)
-	to := common.HexToAddress(caddress)
-	gas := (hexutil.Uint64)(uint64(math.MaxUint16 / 2))
-	callArgs := ethapi.CallArgs{
-		Data: &bytes_data,
+	method := c.abi.Methods[method_name]
+	bData := makeData(method, args...)
+	to := c.addr
+	gas := (hexutil.Uint64)(math.MaxUint32)
+	callData := ethapi.CallArgs{
+		Data: &bData,
 		To:   &to,
 		Gas:  &gas,
 	}
-	res, err := api.Call(ctx, callArgs, rpc.BlockNumberOrHashWithHash(block_hash, false), nil)
+
+	res, err := c.api.Call(
+		ctx,
+		callData,
+		rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(c.api.BlockNumber())),
+		nil,
+	)
+
 	if err != nil {
-		fmt.Println("Call err", err.Error())
-		return "", err
+		return make([]byte, 0), err
 	}
-	final, err := Method.Outputs.Unpack(res)
+
+	return res, nil
+}
+func (c *contract) UnpackResult(data []byte, method_name string) ([]interface{}, error) {
+	method := c.abi.Methods[method_name]
+	res, err := method.Outputs.Unpack(data)
 	if err != nil {
-		fmt.Println("Unpack err", err)
-		return "", err
+		return nil, err
 	}
-	fmt.Println(final)
-	return "", nil
+	return res, nil
+}
+
+type MoreComplex struct {
+	A *big.Int  "json:\"a\""
+	B [32]uint8 "json:\"b\""
+	C string    "json:\"c\""
+}
+
+func MoreComplexFromInterface(i []interface{}) *MoreComplex {
+	return abi.ConvertType(i[0], new(MoreComplex)).(*MoreComplex)
+}
+
+func contract_call(api *ethapi.PublicBlockChainAPI) {
+	contract, err := NewContract(api, ABI, common.HexToAddress(caddress))
+	if err != nil {
+		panic(err)
+	}
+
+	data, err := contract.Call("a")
+
+	if err != nil {
+		fmt.Println("Call faliled\n", err)
+	}
+
+	unpack, err := contract.UnpackResult(data, "a")
+	decode := MoreComplexFromInterface(unpack)
+	fmt.Printf(" -- %v %v %v\n", decode.A, decode.B, decode.C)
+	if err != nil {
+		fmt.Printf("Unpack err %s\n", err)
+	}
 }
