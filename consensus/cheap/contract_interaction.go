@@ -1,9 +1,9 @@
 package cheap
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const caddress = "0x411D7Dd3A717fD95e808c21A347E174eD6aE78bc"
+const caddress = "0xdf224098536510991780072E5A4d4EEb1CAD7730"
 const ABI = `
 [
 	{
@@ -23,16 +23,40 @@ const ABI = `
 		"type": "constructor"
 	},
 	{
-		"inputs": [],
-		"name": "a",
-		"outputs": [
+		"inputs": [
 			{
-				"internalType": "uint64",
-				"name": "",
-				"type": "uint64"
+				"internalType": "uint256",
+				"name": "num",
+				"type": "uint256"
 			}
 		],
-		"stateMutability": "pure",
+		"name": "retrieve",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "num",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "val",
+				"type": "uint256"
+			}
+		],
+		"name": "store",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]`
@@ -41,7 +65,21 @@ const method = "retrieve"
 func loadAbi() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(ABI))
 }
+func Try(a interface{}, e error) interface{} {
+	if e != nil {
+		panic(e)
+	}
+	return a
+}
 
+
+func makeData(Method abi.Method, args ...interface{}) hexutil.Bytes {
+	d, err := Method.Inputs.Pack(args...)
+	if err != nil {
+		panic("pack error")
+	}
+	return (hexutil.Bytes)(append(Method.ID, d...))
+}
 func contract_call(block_hash common.Hash, api *ethapi.PublicBlockChainAPI) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -52,22 +90,10 @@ func contract_call(block_hash common.Hash, api *ethapi.PublicBlockChainAPI) (str
 		return "", err
 	}
 
-	tx := "0x0dbe671f"
-	decodedSig, _ := hex.DecodeString(tx[2:10])
+	Method := contract_abi.Methods[method]
 
-	method, err := contract_abi.MethodById(decodedSig)
-	if err != nil {
-		fmt.Println("methodid err", err)
-		return "", err
-	}
-	
-	// data, err := method.Inputs.Pack()
-	// if err != nil {
-	// 	fmt.Println("Pack err", err)
-	// 	return "", err
-	// }
-
-	bytes_data := (hexutil.Bytes)(decodedSig)
+	bytes_data := makeData(Method, big.NewInt(123))
+	fmt.Println(bytes_data)
 	to := common.HexToAddress(caddress)
 	gas := (hexutil.Uint64)(uint64(math.MaxUint16 / 2))
 	callArgs := ethapi.CallArgs{
@@ -80,7 +106,7 @@ func contract_call(block_hash common.Hash, api *ethapi.PublicBlockChainAPI) (str
 		fmt.Println("Call err", err.Error())
 		return "", err
 	}
-	final, err := method.Outputs.Unpack(res)
+	final, err := Method.Outputs.Unpack(res)
 	if err != nil {
 		fmt.Println("Unpack err", err)
 		return "", err
