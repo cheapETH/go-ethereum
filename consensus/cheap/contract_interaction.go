@@ -9,51 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/cheap/contracts"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/net/context"
 )
-
-const caddress = "0xf24fe4E371351def090BC913bd6593CD25Fe39f4"
-const ABI = `
-[
-	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [],
-		"name": "a",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "a",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "b",
-						"type": "bytes32"
-					},
-					{
-						"internalType": "string",
-						"name": "c",
-						"type": "string"
-					}
-				],
-				"internalType": "struct C.MoreComplex",
-				"name": "",
-				"type": "tuple"
-			}
-		],
-		"stateMutability": "pure",
-		"type": "function"
-	}
-]`
-const method = "retrieve"
 
 func loadAbi(s string) (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(s))
@@ -140,20 +100,22 @@ func MoreComplexFromInterface(i []interface{}) *MoreComplex {
 }
 
 func contract_call(api *ethapi.PublicBlockChainAPI) {
-	contract, err := NewContract(api, ABI, common.HexToAddress(caddress))
+	contract, err := NewContract(api, contracts.Contracts["Dummy"].Abi, contracts.Contracts["Dummy"].Address)
 	if err != nil {
 		panic(err)
 	}
 
-	data, err := contract.Call("a")
+	data, err := contract.Call("A")
 
 	if err != nil {
 		fmt.Println("Call faliled\n", err)
 	}
 
-	unpack, err := contract.UnpackResult(data, "a")
-	decode := MoreComplexFromInterface(unpack)
-	fmt.Printf(" -- %v %v %v\n", decode.A, decode.B, decode.C)
+	unpack, err := contract.UnpackResult(data, "A")
+	asuint := abi.ConvertType(unpack[0], new(uint64)).(*uint64)
+	fmt.Printf("---- %x\n", *asuint)
+	//decode := MoreComplexFromInterface(unpack)
+	//fmt.Printf(" -- %v %v %v\n", decode.A, decode.B, decode.C)
 	if err != nil {
 		fmt.Printf("Unpack err %s\n", err)
 	}
