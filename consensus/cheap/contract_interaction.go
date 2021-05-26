@@ -100,20 +100,20 @@ func MoreComplexFromInterface(i []interface{}) *MoreComplex {
 }
 
 func contract_call(api *ethapi.PublicBlockChainAPI) {
-	contract, err := NewContract(api, contracts.Contracts["Dummy"].Abi, contracts.Contracts["Dummy"].Address)
+	contract, err := NewContract(api, contracts.Contracts["Checkpointer"].Abi, contracts.Contracts["Checkpointer"].Address)
 	if err != nil {
 		panic(err)
 	}
 
-	data, err := contract.Call("A")
+	data, err := contract.Call("getTrusted")
 
 	if err != nil {
 		fmt.Println("Call faliled\n", err)
 	}
 
-	unpack, err := contract.UnpackResult(data, "A")
-	asuint := abi.ConvertType(unpack[0], new(uint64)).(*uint64)
-	fmt.Printf("---- %x\n", *asuint)
+	unpack, err := contract.UnpackResult(data, "getTrusted")
+	trusted := *abi.ConvertType(unpack[0], new([]common.Address)).(*[]common.Address)
+	fmt.Printf("---- %x\n", len(trusted))
 	//decode := MoreComplexFromInterface(unpack)
 	//fmt.Printf(" -- %v %v %v\n", decode.A, decode.B, decode.C)
 	if err != nil {
