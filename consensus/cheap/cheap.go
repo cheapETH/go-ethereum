@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/cheap/contracts"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -105,7 +106,10 @@ func (c *Cheapconsensus) FinalizeAndAssemble(chain consensus.ChainHeaderReader, 
 		fmt.Printf("Chain ID: %d\n\n\n", c.api.ChainId().ToInt())
 
 		//fmt.Printf("%s\n", string(state.Dump(false, false, false)))
-		c.contract = InitCheckpointerContract(c.api)
+		code := state.GetCode(contracts.Contracts["Checkpointer"].Address)
+		if len(code) > 0 {
+			c.contract = InitCheckpointerContract(c.api)
+		}
 		c.api_init = true
 	}
 	return c.ethash.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
