@@ -60,6 +60,7 @@ func (c *contract) Call(method_name string, args ...interface{}) ([]byte, error)
 	method := c.abi.Methods[method_name]
 	bData := makeData(method, args...)
 	to := c.addr
+	//TOOD: Use reasonble amoutn of gas, get rid of the warn
 	gas := (hexutil.Uint64)(math.MaxUint32)
 	callData := ethapi.CallArgs{
 		Data: &bData,

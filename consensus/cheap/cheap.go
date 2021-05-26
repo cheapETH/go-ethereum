@@ -47,11 +47,11 @@ func (c *Cheapconsensus) VerifyHeader(chain consensus.ChainHeaderReader, header 
 		trusted, err := c.contract.GetTrusted()
 		// TODO: find an elegant way of passing errors if enforcing checkpointing or just log warns if not
 		if err != nil {
-			c.config.Log.Warn("error getting trusted", "err", err)
+			fmt.Println("error getting trusted", "err", err)
 		}
 
 		if len(trusted) < MIN_VERIFIERS {
-			c.config.Log.Warn("too little trusted addresses to work properly")
+			fmt.Println("too little trusted addresses to work properly")
 		}
 
 		live_height := header.Number
@@ -66,16 +66,16 @@ func (c *Cheapconsensus) VerifyHeader(chain consensus.ChainHeaderReader, header 
 		for _, v := range trusted {
 			cp, err := c.contract.GetBlockByNumber(*last_possible, v)
 			if err != nil {
-				c.config.Log.Warn("Error getting checkpoint", "err", err)
+				fmt.Println("Error getting checkpoint", "err", err)
 			}
 			if cp.Hash == last_possible_block.Hash() && cp.SavedBlockNumber == last_possible_block.Number {
 				matched = append(matched, v)
 			}
 		}
 
-		treshold := len(trusted)/2 + 1
+		treshold := len(trusted) / 2 + 1
 		if len(matched) < treshold {
-			c.config.Log.Warn("Not enouhg votes, should be treatead as invalid chain")
+			fmt.Println("Not enough votes, should be treatead as invalid chain")
 		}
 
 	} else {
@@ -104,7 +104,7 @@ func (c *Cheapconsensus) FinalizeAndAssemble(chain consensus.ChainHeaderReader, 
 		fmt.Printf("\n\nEthapi is %p\n", c.api)
 		fmt.Printf("Chain ID: %d\n\n\n", c.api.ChainId().ToInt())
 
-		fmt.Printf("%s\n", string(state.Dump(false, false, false)))
+		//fmt.Printf("%s\n", string(state.Dump(false, false, false)))
 		c.contract = InitCheckpointerContract(c.api)
 		c.api_init = true
 	}
