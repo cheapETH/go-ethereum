@@ -89,34 +89,56 @@ func (c *contract) UnpackResult(data []byte, method_name string) ([]interface{},
 	return res, nil
 }
 
-type MoreComplex struct {
-	A *big.Int  "json:\"a\""
-	B [32]uint8 "json:\"b\""
-	C string    "json:\"c\""
+type Checkpoint struct {
+	SavedBlockNumber *big.Int  "json:\"savedBlockNumber\""
+	Hash [32]uint8 "json:\"hash\""
 }
 
-func MoreComplexFromInterface(i []interface{}) *MoreComplex {
-	return abi.ConvertType(i[0], new(MoreComplex)).(*MoreComplex)
+func TrustedFromInterface(i []interface{}) []common.Address {
+	return *abi.ConvertType(i[0], new([]common.Address)).(*[]common.Address)
 }
 
-func contract_call(api *ethapi.PublicBlockChainAPI) {
+func CheckpointFromInterface(i []interface{}) *Checkpoint {
+	return abi.ConvertType(i[0], new(Checkpoint)).(*Checkpoint)
+}
+
+func (c *contract) GetTrusted() ([]common.Address, error) {
+	data, err := c.Call("getTrusted")
+
+	if err != nil {
+		return nil, fmt.Errorf("call faliled with error: %s", err)
+	}
+
+	unpack, err := c.UnpackResult(data, "getTrusted")
+	trusted := TrustedFromInterface(unpack)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack data: %s", err)
+	}
+
+	return trusted, nil
+}
+
+func (c *contract) GetBlockByNumber(number big.Int, verifier common.Address) (*Checkpoint, error){
+	data, err := c.Call("getBlockByNumber", number, verifier)
+
+	if err != nil {
+		return nil, fmt.Errorf("call faliled with error: %s", err)
+	}
+
+	unpack, err := c.UnpackResult(data, "getBlockByNumber")
+	point := CheckpointFromInterface(unpack)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack data: %s", err)
+	}
+
+	return point, nil
+
+}
+
+func InitCheckpointerContract(api *ethapi.PublicBlockChainAPI) (*contract) {
 	contract, err := NewContract(api, contracts.Contracts["Checkpointer"].Abi, contracts.Contracts["Checkpointer"].Address)
 	if err != nil {
 		panic(err)
 	}
-
-	data, err := contract.Call("getTrusted")
-
-	if err != nil {
-		fmt.Println("Call faliled\n", err)
-	}
-
-	unpack, err := contract.UnpackResult(data, "getTrusted")
-	trusted := *abi.ConvertType(unpack[0], new([]common.Address)).(*[]common.Address)
-	fmt.Printf("---- %x\n", len(trusted))
-	//decode := MoreComplexFromInterface(unpack)
-	//fmt.Printf(" -- %v %v %v\n", decode.A, decode.B, decode.C)
-	if err != nil {
-		fmt.Printf("Unpack err %s\n", err)
-	}
+	return contract
 }
